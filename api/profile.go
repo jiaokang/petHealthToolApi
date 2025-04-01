@@ -16,25 +16,25 @@ func SetPassword(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
 		global.Log.Error("Failed to get userId from context")
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.Unauthorized), result.ApiCode.GetMessage(result.ApiCode.Unauthorized))
 		return
 	}
 	var setPwdParam model.SetPasswordReq
 	if err := c.ShouldBindJSON(&setPwdParam); err != nil {
 		global.Log.Error("Failed to bind JSON: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	pwdHash, err := hashPassword(setPwdParam.Password)
 	if err != nil {
 		global.Log.Error("Failed to hash password: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	db := core.GetDb()
 	if err := db.Model(&model.Users{}).Where("id = ?", userId).Update("pwd", pwdHash).Error; err != nil {
 		global.Log.Error("Failed to update password: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	result.Success(c, nil)

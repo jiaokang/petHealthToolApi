@@ -15,13 +15,13 @@ func AddPet(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
 		global.Log.Error("Failed to get userId from context")
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.Unauthorized), result.ApiCode.GetMessage(result.ApiCode.Unauthorized))
 		return
 	}
 	var param model.AddPet
 	if err := c.ShouldBindJSON(&param); err != nil {
 		global.Log.Error("Failed to bind JSON: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	db := core.GetDb()
@@ -43,14 +43,14 @@ func GetPetList(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
 		global.Log.Error("Failed to get userId from context")
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.Unauthorized), result.ApiCode.GetMessage(result.ApiCode.Unauthorized))
 		return
 	}
 	db := core.GetDb()
 	var pets []model.Pets
 	if err := db.Where("user_id = ?", userId).Find(&pets).Error; err != nil {
 		global.Log.Error("Failed to get pet list: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	// 转换为 PetResponse 结构体，格式化日期
@@ -75,19 +75,19 @@ func DeletePet(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
 		global.Log.Error("Failed to get userId from context")
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.Unauthorized), result.ApiCode.GetMessage(result.ApiCode.Unauthorized))
 		return
 	}
 	var deletePet model.DeletePet
 	if err := c.ShouldBindJSON(&deletePet); err != nil {
 		global.Log.Error("Failed to bind JSON: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	db := core.GetDb()
 	if err := db.Where("id = ? and user_id=? ", deletePet.PetId, userId).Delete(&model.Pets{}, deletePet.PetId); err != nil {
 		global.Log.Error("Failed to delete pet: %v", err)
-		handleError(c, int(result.ApiCode.Failed), result.ApiCode.GetMessage(result.ApiCode.Failed))
+		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
 		return
 	}
 	result.Success(c, nil)

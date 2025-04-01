@@ -37,8 +37,15 @@ func register(router *gin.Engine) {
 	profileGroup := router.Group("/api/profile")
 	{
 		profileGroup.Use(middleware.AuthMiddleware())
-		//
+		// 设置密码
 		profileGroup.PUT("/setPwd", api.SetPassword)
+	}
+
+	// 文件相关
+	fileGroup := router.Group("/api/file")
+	{
+		fileGroup.Use(middleware.AuthMiddleware())
+		fileGroup.POST("/getPreSignerUrl", api.GetPreSignUrl)
 	}
 
 	// 宠物相关
@@ -48,7 +55,15 @@ func register(router *gin.Engine) {
 		petGroup.POST("/addPet", api.AddPet)
 		petGroup.GET("/getPetList", api.GetPetList)
 		petGroup.DELETE("/deletePet", api.DeletePet)
+	}
 
+	// 疫苗相关
+	vaccineGroup := router.Group("/api/vaccine")
+	{
+		vaccineGroup.Use(middleware.AuthMiddleware())
+		vaccineGroup.POST("/addVaccine", api.AddVaccine)
+		vaccineGroup.GET("/getVaccineList", api.GetVaccineList)
+		vaccineGroup.DELETE("/deleteVaccine", api.DeleteVaccine)
 	}
 
 }

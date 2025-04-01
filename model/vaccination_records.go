@@ -18,6 +18,36 @@ type VaccinationRecords struct {
 	Remark      string    `gorm:"size:100;comment:备注"`
 }
 
+// AddVaccinationRecord 添加的接种记录
+type AddVaccinationRecord struct {
+	PetId       uint      `json:"petId"`
+	RecordDate  time.Time `json:"recordDate" time_format:"2006-01-02"`
+	Weight      float64   `json:"weight"`
+	Medicine    string    `json:"medicine"`
+	Temperature float64   `json:"temperature"`
+	Age         int       `json:"age"`
+	HealthState string    `json:"healthState"`
+	Remark      string    `json:"remark"`
+}
+
+// DeleteVaccinationRecord 添加的接种记录
+type DeleteVaccinationRecord struct {
+	PetId uint `json:"petId"`
+}
+
+func (a *AddVaccinationRecord) ToVaccinationRecords() *VaccinationRecords {
+	return &VaccinationRecords{
+		PetId:       a.PetId,
+		RecordDate:  a.RecordDate,
+		Weight:      a.Weight,
+		Medicine:    a.Medicine,
+		Temperature: a.Temperature,
+		Age:         a.Age,
+		HealthState: a.HealthState,
+		Remark:      a.Remark,
+	}
+}
+
 func (VaccinationRecords) TableName() string {
 	return "vaccination_records"
 }
