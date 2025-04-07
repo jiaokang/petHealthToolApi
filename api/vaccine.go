@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"petHealthToolApi/core"
 	"petHealthToolApi/global"
 	"petHealthToolApi/model"
@@ -12,35 +14,114 @@ import (
 
 // AddVaccine 新增疫苗记录
 func AddVaccine(c *gin.Context) {
-	// 1. 获取用户ID
+	// 1. 获取并验证用户ID
+	userId, err := getAndValidateUserId(c)
+	if err != nil {
+		return
+	}
+
+	// 2. 绑定并验证参数
+	var param model.AddVaccinationRecord
+	if err := bindAndValidate(c, &param); err != nil {
+		return
+	}
+
+	// 3. 验证宠物权限
+	if !hasPetPermission(c, param.PetId, userId) {
+		return
+	}
+
+	// 4. 在事务中执行操作
+	db := core.GetDb()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 创建疫苗记录
+		records := param.ToVaccinationRecords()
+		if err := tx.Create(records).Error; err != nil {
+			global.Log.Errorf("创建疫苗记录失败 petId:%d 用户:%d 错误:%v",
+				param.PetId, userId, err)
+			return fmt.Errorf("创建疫苗记录失败")
+		}
+
+		// 创建定时任务
+		if err := createScheduledInTx(tx, records, userId); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		handleError(c, int(result.ApiCode.InternalError), err.Error())
+		return
+	}
+
+	result.Success(c, nil)
+}
+
+// 辅助函数分解
+func getAndValidateUserId(c *gin.Context) (uint, error) {
 	userId, exists := c.Get("userId")
 	if !exists {
-		global.Log.Error("Failed to get userId from context")
-		handleError(c, int(result.ApiCode.Unauthorized), result.ApiCode.GetMessage(result.ApiCode.Unauthorized))
-		return
+		msg := "无法获取用户ID"
+		global.Log.Error(msg)
+		handleError(c, int(result.ApiCode.Unauthorized), msg)
+		return 0, fmt.Errorf(msg)
 	}
 
-	var addVaccineParam model.AddVaccinationRecord
-	if err := c.ShouldBindJSON(&addVaccineParam); err != nil {
-		global.Log.Error("Failed to bind JSON: %v", err)
-		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
-		return
+	id, ok := userId.(uint)
+	if !ok {
+		msg := "用户ID类型无效"
+		global.Log.Error(msg)
+		handleError(c, int(result.ApiCode.Unauthorized), msg)
+		return 0, fmt.Errorf(msg)
 	}
+
+	return id, nil
+}
+
+func bindAndValidate(c *gin.Context, param *model.AddVaccinationRecord) error {
+	if err := c.ShouldBindJSON(param); err != nil {
+		global.Log.Errorf("参数绑定失败: %v", err)
+		handleError(c, int(result.ApiCode.BadRequest), "无效的请求参数")
+		return err
+	}
+
+	// 可以在这里添加更多验证逻辑
+	return nil
+}
+
+func hasPetPermission(c *gin.Context, petId uint, userId uint) bool {
 	petIds := getUserPetIds(userId)
-	if !hasOptPermission(addVaccineParam.PetId, petIds) {
-		global.Log.Error("Failed to get userId from context")
-		handleError(c, int(result.ApiCode.Forbidden), result.ApiCode.GetMessage(result.ApiCode.Forbidden))
-		return
+	if !hasOptPermission(petId, petIds) {
+		global.Log.Errorf("用户无权限操作宠物 petId:%d 用户:%d", petId, userId)
+		handleError(c, int(result.ApiCode.Forbidden), "无权限操作该宠物")
+		return false
+	}
+	return true
+}
+
+func createScheduledInTx(tx *gorm.DB, r *model.VaccinationRecords, userId uint) error {
+	if !r.Notify {
+		return nil
 	}
 
-	vaccinationRecords := addVaccineParam.ToVaccinationRecords()
-	db := core.GetDb()
-	if err := db.Create(&vaccinationRecords); err != nil {
-		global.Log.Error("Failed to create vaccination record: %v", err)
-		handleError(c, int(result.ApiCode.InternalError), result.ApiCode.GetMessage(result.ApiCode.InternalError))
-		return
+	futureDate := r.RecordDate.AddDate(0, 3, 0)
+	scheduled := model.Scheduleds{
+		PetId:        r.PetId,
+		UserId:       userId,
+		RecordId:     r.ID,
+		TaskType:     model.TaskTypeVaccination, // 修正为疫苗类型
+		ExpectDate:   futureDate,
+		ExecuteState: false,
+		NotifyState:  false,
 	}
-	result.Success(c, nil)
+
+	if err := tx.Create(&scheduled).Error; err != nil {
+		global.Log.Errorf("创建定时任务失败 petId:%d 用户:%d 错误:%v",
+			r.PetId, userId, err)
+		return fmt.Errorf("创建定时任务失败")
+	}
+	return nil
 }
 
 // GetVaccineList 获取疫苗记录

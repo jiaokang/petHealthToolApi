@@ -45,7 +45,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// 提取用户信息
 		if claims, ok := token.Claims.(*model.UserStdClaim); ok && token.Valid {
-			c.Set("userId", claims.Id)         // 将 userID 存入上下文
+			c.Set("userId", uint(claims.Id))   // 将 userID 存入上下文
 			c.Set("nickName", claims.NickName) // 将 nickName 存入上下文
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
